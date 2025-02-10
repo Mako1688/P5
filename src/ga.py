@@ -67,12 +67,14 @@ class Individual_Grid(object):
         # STUDENT implement a mutation operator, also consider not mutating this individual
         # STUDENT also consider weighting the different tile types so it's not uniformly random
         # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
-
+        # Mutation rate
+        mutation_rate = 0.01
         left = 1
         right = width - 1
         for y in range(height):
             for x in range(left, right):
-                pass
+                if random.random() < mutation_rate:
+                    genome[y][x] = random.choice(options)
         return genome
 
     # Create zero or more children from self and other
@@ -82,13 +84,15 @@ class Individual_Grid(object):
         # do crossover with other
         left = 1
         right = width - 1
+        crossover_point = random.randint(left, right)
         for y in range(height):
             for x in range(left, right):
                 # STUDENT Which one should you take?  Self, or other?  Why?
                 # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
-                pass
+                if x >= crossover_point:
+                    new_genome[y][x] = other.genome[y][x]
         # do mutation; note we're returning a one-element tuple here
-        return (Individual_Grid(new_genome),)
+        return (Individual_Grid(self.mutate(new_genome)),)
 
     # Turn the genome into a level string (easy for this genome)
     def to_level(self):
@@ -347,6 +351,18 @@ def generate_successors(population):
     results = []
     # STUDENT Design and implement this
     # Hint: Call generate_children() on some individuals and fill up results.
+    # Elitist selection: Keep the top 10% of the population
+    population.sort(key=lambda ind: ind.fitness(), reverse=True)
+    elite_count = int(0.1 * len(population))
+    results.extend(population[:elite_count])
+
+    # Tournament selection: Select the rest of the population
+    tournament_size = 5
+    while len(results) < len(population):
+        tournament = random.sample(population, tournament_size)
+        winner = max(tournament, key=lambda ind: ind.fitness())
+        results.append(winner.generate_children(random.choice(population))[0])
+
     return results
 
 
