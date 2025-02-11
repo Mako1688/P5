@@ -81,6 +81,9 @@ class Individual_Grid(object):
                     # Prevent pipes in the air
                     if new_tile in ["|", "T"] and y < height - 2:
                         continue
+                    # Ensure obstacles and enemies have walls below them
+                    if new_tile in ["?", "M", "B", "o", "E"] and genome[y + 1][x] == "-":
+                        continue
                     genome[y][x] = new_tile
         # Ensure a playable path
         for x in range(left, right):
