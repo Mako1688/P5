@@ -50,10 +50,11 @@ class Individual_Grid(object):
             pathPercentage=0.5,
             emptyPercentage=0.6,
             linearity=-0.5,
-            solvability=2.0
+            solvability=2.0,
+            leniency=0.3,  # Added new metric
+            decorationPercentage=0.4  # Added new metric
         )
-        self._fitness = sum(map(lambda m: coefficients[m] * measurements[m],
-                                coefficients))
+        self._fitness = sum(map(lambda m: coefficients[m] * measurements[m], coefficients))
         return self
 
     # Return the cached fitness value or calculate it as needed.
@@ -74,7 +75,11 @@ class Individual_Grid(object):
         for y in range(height):
             for x in range(left, right):
                 if random.random() < mutation_rate:
-                    genome[y][x] = random.choice(options)
+                    new_tile = random.choices(options, weights=[0.4, 0.1, 0.1, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05])[0]
+                    # Prevent pipes in the air
+                    if new_tile in ["|", "T"] and y < height - 2:
+                        continue
+                    genome[y][x] = new_tile
         return genome
 
     # Create zero or more children from self and other
@@ -400,12 +405,14 @@ def ga():
                     print("Max fitness:", str(best.fitness()))
                     print("Average generation time:", (now - start) / generation)
                     print("Net time:", now - start)
+                    if not os.path.exists("levels"):
+                        os.makedirs("levels")
                     with open("levels/last.txt", 'w') as f:
                         for row in best.to_level():
                             f.write("".join(row) + "\n")
                 generation += 1
                 # STUDENT Determine stopping condition
-                stop_condition = False
+                stop_condition = generation >= 100  # Example stopping condition
                 if stop_condition:
                     break
                 # STUDENT Also consider using FI-2POP as in the Sorenson & Pasquier paper
@@ -431,6 +438,8 @@ if __name__ == "__main__":
     print("Best fitness: " + str(best.fitness()))
     now = time.strftime("%m_%d_%H_%M_%S")
     # STUDENT You can change this if you want to blast out the whole generation, or ten random samples, or...
+    if not os.path.exists("levels"):
+        os.makedirs("levels")
     for k in range(0, 10):
         with open("levels/" + now + "_" + str(k) + ".txt", 'w') as f:
             for row in final_gen[k].to_level():
