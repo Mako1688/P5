@@ -54,7 +54,9 @@ class Individual_Grid(object):
             leniency=0.3,  # Added new metric
             decorationPercentage=0.4  # Added new metric
         )
-        self._fitness = sum(map(lambda m: coefficients[m] * measurements[m], coefficients))
+        # Add a penalty for blocks in the top 4 levels
+        penalty = sum(1 for row in self.genome[:4] for tile in row if tile != "-")
+        self._fitness = sum(map(lambda m: coefficients[m] * measurements[m], coefficients)) - penalty
         return self
 
     # Return the cached fitness value or calculate it as needed.
@@ -72,7 +74,7 @@ class Individual_Grid(object):
         mutation_rate = 0.01
         left = 1
         right = width - 1
-        for y in range(height):
+        for y in range(height - 4):  # Avoid top 4 levels
             for x in range(left, right):
                 if random.random() < mutation_rate:
                     new_tile = random.choices(options, weights=[0.4, 0.1, 0.1, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05])[0]
@@ -80,6 +82,10 @@ class Individual_Grid(object):
                     if new_tile in ["|", "T"] and y < height - 2:
                         continue
                     genome[y][x] = new_tile
+        # Ensure a playable path
+        for x in range(left, right):
+            if genome[height - 2][x] == "-":
+                genome[height - 1][x] = "-"
         return genome
 
     # Create zero or more children from self and other
@@ -90,12 +96,14 @@ class Individual_Grid(object):
         left = 1
         right = width - 1
         crossover_point = random.randint(left, right)
-        for y in range(height):
+        for y in range(height - 4):  # Avoid top 4 levels
             for x in range(left, right):
-                # STUDENT Which one should you take?  Self, or other?  Why?
-                # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
                 if x >= crossover_point:
                     new_genome[y][x] = other.genome[y][x]
+        # Ensure a playable path
+        for x in range(left, right):
+            if new_genome[height - 2][x] == "-":
+                new_genome[height - 1][x] = "-"
         # do mutation; note we're returning a one-element tuple here
         return (Individual_Grid(self.mutate(new_genome)),)
 
@@ -127,6 +135,10 @@ class Individual_Grid(object):
         g[7][-1] = "v"
         g[8:14][-1] = ["f"] * 6
         g[14:16][-1] = ["X", "X"]
+        # Ensure a playable path
+        for x in range(1, width - 1):
+            if g[height - 2][x] == "-":
+                g[height - 1][x] = "-"
         return cls(g)
 
 
