@@ -96,7 +96,19 @@ class Individual_Grid(object):
                     # Ensure obstacles and enemies have walls below them
                     if y + 1 < height and new_tile in ["?", "M", "B", "o", "E"] and genome[y + 1][x] == "-":
                         continue
-                    genome[y][x] = new_tile
+                    # Ensure complete pipes
+                    if new_tile == "T":
+                        max_pipe_height = min(5, height - y)
+                        if max_pipe_height >= 3:
+                            pipe_height = random.randint(3, max_pipe_height)
+                            for i in range(pipe_height):
+                                if y + i < height:
+                                    genome[y + i][x] = "|" if i < pipe_height - 1 else "T"
+                            genome[y + pipe_height - 1][x] = "T"
+                            if y + pipe_height < height:
+                                genome[y + pipe_height][x] = "X"
+                    else:
+                        genome[y][x] = new_tile
         # Ensure a playable path
         for x in range(left, right):
             if genome[height - 2][x] == "-":
@@ -119,6 +131,19 @@ class Individual_Grid(object):
         for x in range(left, right):
             if new_genome[height - 2][x] == "-":
                 new_genome[height - 1][x] = "-"
+        # Ensure complete pipes
+        for y in range(height - 4, height):
+            for x in range(left, right):
+                if new_genome[y][x] == "T":
+                    max_pipe_height = min(5, height - y)
+                    if max_pipe_height >= 3:
+                        pipe_height = random.randint(3, max_pipe_height)
+                        for i in range(pipe_height):
+                            if y + i < height:
+                                new_genome[y + i][x] = "|" if i < pipe_height - 1 else "T"
+                        new_genome[y + pipe_height - 1][x] = "T"
+                        if y + pipe_height < height:
+                            new_genome[y + pipe_height][x] = "X"
         # do mutation; note we're returning a one-element tuple here
         return (Individual_Grid(self.mutate(new_genome)),)
 
@@ -154,6 +179,19 @@ class Individual_Grid(object):
         for x in range(1, width - 1):
             if g[height - 2][x] == "-":
                 g[height - 1][x] = "-"
+        # Ensure complete pipes
+        for y in range(height - 4, height):
+            for x in range(1, width - 1):
+                if g[y][x] == "T":
+                    max_pipe_height = min(5, height - y)
+                    if max_pipe_height >= 3:
+                        pipe_height = random.randint(3, max_pipe_height)
+                        for i in range(pipe_height):
+                            if y + i < height:
+                                g[y + i][x] = "|" if i < pipe_height - 1 else "T"
+                        g[y + pipe_height - 1][x] = "T"
+                        if y + pipe_height < height:
+                            g[y + pipe_height][x] = "X"
         return cls(g)
 
 
