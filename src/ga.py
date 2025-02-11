@@ -54,6 +54,18 @@ class Individual_Grid(object):
             leniency=0.3,  # Added new metric
             decorationPercentage=0.4  # Added new metric
         )
+        # Reward the use of question and coin blocks
+        question_blocks = sum(row.count("?") for row in self.genome)
+        coin_blocks = sum(row.count("o") for row in self.genome)
+        if question_blocks > 5:
+            coefficients["decorationPercentage"] += 0.2
+        if coin_blocks > 5:
+            coefficients["decorationPercentage"] += 0.2
+        # Ensure pipes are correctly oriented
+        for y in range(height - 4, height):
+            for x in range(width):
+                if self.genome[y][x] == "T" and (y == height - 1 or self.genome[y + 1][x] != "|"):
+                    coefficients["solvability"] -= 1.0
         # Add a penalty for blocks in the top 4 levels
         penalty = sum(1 for row in self.genome[:4] for tile in row if tile != "-")
         self._fitness = sum(map(lambda m: coefficients[m] * measurements[m], coefficients)) - penalty
@@ -74,7 +86,7 @@ class Individual_Grid(object):
         mutation_rate = 0.01
         left = 1
         right = width - 1
-        for y in range(height - 4):  # Avoid top 4 levels
+        for y in range(height - 4, height):  # Prefer bottom 4 levels
             for x in range(left, right):
                 if random.random() < mutation_rate:
                     new_tile = random.choices(options, weights=[0.4, 0.1, 0.1, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05])[0]
@@ -82,7 +94,7 @@ class Individual_Grid(object):
                     if new_tile in ["|", "T"] and y < height - 2:
                         continue
                     # Ensure obstacles and enemies have walls below them
-                    if new_tile in ["?", "M", "B", "o", "E"] and genome[y + 1][x] == "-":
+                    if y + 1 < height and new_tile in ["?", "M", "B", "o", "E"] and genome[y + 1][x] == "-":
                         continue
                     genome[y][x] = new_tile
         # Ensure a playable path
@@ -99,7 +111,7 @@ class Individual_Grid(object):
         left = 1
         right = width - 1
         crossover_point = random.randint(left, right)
-        for y in range(height - 4):  # Avoid top 4 levels
+        for y in range(height - 4, height):  # Prefer bottom 4 levels
             for x in range(left, right):
                 if x >= crossover_point:
                     new_genome[y][x] = other.genome[y][x]
