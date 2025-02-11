@@ -62,13 +62,22 @@ class Individual_Grid(object):
         if coin_blocks > 5:
             coefficients["decorationPercentage"] += 0.2
         # Ensure pipes are correctly oriented
-        for y in range(height - 4, height):
+        for y in range(height - 6, height):
             for x in range(width):
                 if self.genome[y][x] == "T" and (y == height - 1 or self.genome[y + 1][x] != "|"):
                     coefficients["solvability"] -= 1.0
         # Add a penalty for blocks in the top 4 levels
         penalty = sum(1 for row in self.genome[:4] for tile in row if tile != "-")
-        self._fitness = sum(map(lambda m: coefficients[m] * measurements[m], coefficients)) - penalty
+        # Reward connected ground and penalize large gaps
+        ground_length = sum(1 for row in self.genome[height - 1] if row == "X")
+        gap_penalty = sum(1 for i in range(1, width - 1) if self.genome[height - 1][i] == "-" and self.genome[height - 1][i - 1] == "-" and self.genome[height - 1][i + 1] == "-")
+        # Cap enemy generation to 10
+        enemy_count = sum(row.count("E") for row in self.genome)
+        if enemy_count > 10:
+            penalty += (enemy_count - 10) * 2
+        # Reward variety of elements
+        variety_bonus = sum(1 for row in self.genome for tile in row if tile in ["?", "M", "B", "o", "E", "|", "T"])
+        self._fitness = sum(map(lambda m: coefficients[m] * measurements[m], coefficients)) + ground_length - gap_penalty - penalty + variety_bonus
         return self
 
     # Return the cached fitness value or calculate it as needed.
@@ -86,10 +95,10 @@ class Individual_Grid(object):
         mutation_rate = 0.01
         left = 1
         right = width - 1
-        for y in range(height - 4, height):  # Prefer bottom 4 levels
+        for y in range(height - 6, height):  # Prefer bottom 6 levels
             for x in range(left, right):
                 if random.random() < mutation_rate:
-                    new_tile = random.choices(options, weights=[0.4, 0.1, 0.1, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05])[0]
+                    new_tile = random.choices(options, weights=[0.3, 0.3, 0.1, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05])[0]
                     # Prevent pipes in the air
                     if new_tile in ["|", "T"] and y < height - 2:
                         continue
@@ -123,7 +132,7 @@ class Individual_Grid(object):
         left = 1
         right = width - 1
         crossover_point = random.randint(left, right)
-        for y in range(height - 4, height):  # Prefer bottom 4 levels
+        for y in range(height - 6, height):  # Prefer bottom 6 levels
             for x in range(left, right):
                 if x >= crossover_point:
                     new_genome[y][x] = other.genome[y][x]
@@ -132,7 +141,7 @@ class Individual_Grid(object):
             if new_genome[height - 2][x] == "-":
                 new_genome[height - 1][x] = "-"
         # Ensure complete pipes
-        for y in range(height - 4, height):
+        for y in range(height - 6, height):
             for x in range(left, right):
                 if new_genome[y][x] == "T":
                     max_pipe_height = min(5, height - y)
@@ -169,18 +178,20 @@ class Individual_Grid(object):
     def random_individual(cls):
         # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
         # STUDENT also consider weighting the different tile types so it's not uniformly random
-        g = [random.choices(options, k=width) for row in range(height)]
+        g = [["-" for col in range(width)] for row in range(height)]
         g[15][:] = ["X"] * width
         g[14][0] = "m"
         g[7][-1] = "v"
-        g[8:14][-1] = ["f"] * 6
-        g[14:16][-1] = ["X", "X"]
+        for col in range(8, 14):
+            g[col][-1] = "f"
+        for col in range(14, 16):
+            g[col][-1] = "X"
         # Ensure a playable path
         for x in range(1, width - 1):
             if g[height - 2][x] == "-":
                 g[height - 1][x] = "-"
         # Ensure complete pipes
-        for y in range(height - 4, height):
+        for y in range(height - 6, height):
             for x in range(1, width - 1):
                 if g[y][x] == "T":
                     max_pipe_height = min(5, height - y)
