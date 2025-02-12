@@ -50,58 +50,10 @@ class Individual_Grid(object):
             pathPercentage=0.5,
             emptyPercentage=0.6,
             linearity=-0.5,
-            solvability=2.0,
-            leniency=0.3,  # Added new metric
-            decorationPercentage=0.4  # Added new metric
+            solvability=2.0
         )
-        # Reward blocks at the bottom 6 levels
-        bottom_bonus = sum(1 for row in self.genome[height - 6:] for tile in row if tile != "-")
-        # Add a penalty for blocks in the top 4 levels
-        penalty = sum(1 for row in self.genome[:4] for tile in row if tile != "-")
-        
-        # Penalize overlapping elements
-        overlap_penalty = 0
-        for y in range(height):
-            for x in range(width):
-                if self.genome[y][x] != "-" and (x > 0 and self.genome[y][x - 1] != "-" or x < width - 1 and self.genome[y][x + 1] != "-"):
-                    overlap_penalty += 1
-        
-        # Penalize excessive density
-        density_penalty = 0
-        for y in range(height):
-            for x in range(width):
-                if self.genome[y][x] != "-" and (x > 0 and self.genome[y][x - 1] != "-" and x < width - 1 and self.genome[y][x + 1] != "-"):
-                    density_penalty += 1
-        
-        # Reward proper spacing
-        spacing_bonus = 0
-        for y in range(height):
-            for x in range(width):
-                if self.genome[y][x] == "-" and (x > 0 and self.genome[y][x - 1] != "-" and x < width - 1 and self.genome[y][x + 1] != "-"):
-                    spacing_bonus += 1
-        
-        # Penalize isolated elements
-        isolation_penalty = 0
-        for y in range(height):
-            for x in range(width):
-                if self.genome[y][x] != "-" and (x == 0 or self.genome[y][x - 1] == "-") and (x == width - 1 or self.genome[y][x + 1] == "-"):
-                    isolation_penalty += 1
-        
-        # Penalize more than 2 enemies within a certain radius
-        enemy_penalty = 0
-        radius = 3
-        for y in range(height):
-            for x in range(width):
-                if self.genome[y][x] == "E":
-                    enemy_count = 0
-                    for dy in range(-radius, radius + 1):
-                        for dx in range(-radius, radius + 1):
-                            if 0 <= y + dy < height and 0 <= x + dx < width and self.genome[y + dy][x + dx] == "E":
-                                enemy_count += 1
-                    if enemy_count > 2:
-                        enemy_penalty += 1
-        
-        self._fitness = sum(map(lambda m: coefficients[m] * measurements[m], coefficients)) + bottom_bonus - penalty - overlap_penalty - density_penalty + spacing_bonus - isolation_penalty - enemy_penalty
+        self._fitness = sum(map(lambda m: coefficients[m] * measurements[m],
+                                coefficients))
         return self
 
     # Return the cached fitness value or calculate it as needed.
@@ -115,81 +67,11 @@ class Individual_Grid(object):
         # STUDENT implement a mutation operator, also consider not mutating this individual
         # STUDENT also consider weighting the different tile types so it's not uniformly random
         # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
-        # Mutation rate
-        mutation_rate = 0.015
         left = 1
         right = width - 1
-        enemy_count = sum(row.count("E") for row in genome)
-        pipe_count = sum(row.count("|") for row in genome) // 3  # Each pipe consists of 3 segments on average
-        max_pipes = 10
-
-        for y in range(height - 6, height):  # Prefer bottom 6 levels
+        for y in range(height):
             for x in range(left, right):
-                if random.random() < mutation_rate:
-                    new_tile = random.choices(options, weights=[0.4, 0.1, 0.1, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05])[0]
-                    
-                    # Rule 1: Do not generate wall blocks (X) above the bottom 3 layers
-                    if new_tile == "X" and y < height - 3:
-                        continue
-                    
-                    # New Rule 2: Generate enemies only on blocks with a standable block below them, with a maximum enemy count of 10
-                    # Do not generate enemies right next to the player
-                    if new_tile == "E":
-                        if y + 1 < height and genome[y + 1][x] != "-" and enemy_count < 10 and not (y == height - 2 and x in [0, 1, 2]):
-                            enemy_count += 1
-                        else:
-                            continue
-                    
-                    # Rule 3: After every "|" generation, generate two "X" below it and a number of "|" above it ranging from 1-3, topping it off with a "T"
-                    # Ensure pipes are complete and limit the number of pipes to 10
-                    if new_tile == "|" and pipe_count < max_pipes:
-                        pipe_height = random.randint(1, 3)
-                        if y + pipe_height + 1 < height and x + 1 < width:
-                            # Ensure no two "|" or "T" blocks are next to each other
-                            if genome[y][x + 1] in ["|", "T"] or genome[y][x - 1] in ["|", "T"]:
-                                continue
-                            genome[y][x] = "|"
-                            for i in range(1, pipe_height + 1):
-                                genome[y - i][x] = "|"
-                            genome[y - pipe_height - 1][x] = "T"
-                            genome[y + 1][x] = "X"
-                            pipe_count += 1
-                        continue
-                    
-                    # Rule 4: Generate longer stretches of wall ranging from 4-8 blocks
-                    if new_tile == "X":
-                        wall_length = random.randint(4, 8)
-                        for i in range(wall_length):
-                            if x + i < width:
-                                genome[y][x + i] = "X"
-                        continue
-                    
-                    # Rule 5: Small chance to generate breakable blocks, coins, mushrooms, or coin blocks 3 blocks above ground or standable blocks like pipes
-                    if new_tile in ["B", "o", "M", "?"] and y >= 3:
-                        if random.random() < 0.1:
-                            genome[y - 3][x] = new_tile
-                        continue
-                    
-                    genome[y][x] = new_tile
-        
-        # Ensure a playable path with gaps no longer than 4 blocks and no gaps of 1 block
-        for x in range(left, right - 4):
-            if all(genome[height - 1][x + i] == "-" for i in range(5)):
-                genome[height - 1][x + random.randint(0, 4)] = "X"
-            elif genome[height - 1][x] == "-" and genome[height - 1][x + 1] == "-":
-                genome[height - 1][x] = "X"
-        
-        # Ensure no gaps of length 1 in the bottom layer
-        for x in range(1, width - 1):
-            if genome[height - 1][x] == "-" and genome[height - 1][x - 1] == "X" and genome[height - 1][x + 1] == "X":
-                genome[height - 1][x] = "X"
-        
-        # Ensure enemies are generated only on standable blocks
-        for y in range(height - 6, height):
-            for x in range(left, right):
-                if genome[y][x] == "E" and (y + 1 >= height or genome[y + 1][x] == "-"):
-                    genome[y][x] = "-"
-        
+                pass
         return genome
 
     # Create zero or more children from self and other
@@ -199,15 +81,13 @@ class Individual_Grid(object):
         # do crossover with other
         left = 1
         right = width - 1
-        crossover_point = random.randint(left, right)
         for y in range(height):
             for x in range(left, right):
                 # STUDENT Which one should you take?  Self, or other?  Why?
                 # STUDENT consider putting more constraints on this to prevent pipes in the air, etc
-                if x >= crossover_point:
-                    new_genome[y][x] = other.genome[y][x]
+                pass
         # do mutation; note we're returning a one-element tuple here
-        return (Individual_Grid(self.mutate(new_genome)),)
+        return (Individual_Grid(new_genome),)
 
     # Turn the genome into a level string (easy for this genome)
     def to_level(self):
@@ -237,39 +117,6 @@ class Individual_Grid(object):
         g[7][-1] = "v"
         g[8:14][-1] = ["f"] * 6
         g[14:16][-1] = ["X", "X"]
-        pipe_count = 0
-        max_pipes = 10
-
-        # Ensure a playable path with gaps no longer than 4 blocks and no gaps of 1 block
-        for x in range(1, width - 1):
-            if random.random() < 0.1:
-                g[height - 1][x] = "-"
-            elif g[height - 2][x] == "-":
-                g[height - 1][x] = "-"
-        for x in range(1, width - 5):
-            if all(g[height - 1][x + i] == "-" for i in range(5)):
-                g[height - 1][x + random.randint(0, 4)] = "X"
-            elif g[height - 1][x] == "-" and g[height - 1][x + 1] == "-":
-                g[height - 1][x] = "X"
-        # Ensure no gaps of length 1 in the bottom layer
-        for x in range(1, width - 1):
-            if g[height - 1][x] == "-" and g[height - 1][x - 1] == "X" and g[height - 1][x + 1] == "X":
-                g[height - 1][x] = "X"
-        # Ensure pipes are complete and limit the number of pipes to 10
-        for y in range(height - 6, height):
-            for x in range(1, width - 2):
-                if g[y][x] == "|" and pipe_count < max_pipes:
-                    pipe_height = random.randint(1, 3)
-                    if y + pipe_height + 1 < height:
-                        # Ensure no two "|" or "T" blocks are next to each other
-                        if g[y][x + 1] in ["|", "T"] or g[y][x - 1] in ["|", "T"]:
-                            continue
-                        g[y][x] = "|"
-                        for i in range(1, pipe_height + 1):
-                            g[y - i][x] = "|"
-                        g[y - pipe_height - 1][x] = "T"
-                        g[y + 1][x] = "X"
-                        pipe_count += 1
         return cls(g)
 
 
@@ -334,9 +181,6 @@ class Individual_DE(object):
     def mutate(self, new_genome):
         # STUDENT How does this work?  Explain it in your writeup.
         # STUDENT consider putting more constraints on this, to prevent generating weird things
-        if not new_genome:
-            return new_genome
-
         if random.random() < 0.1 and len(new_genome) > 0:
             to_change = random.randint(0, len(new_genome) - 1)
             de = new_genome[to_change]
@@ -416,9 +260,6 @@ class Individual_DE(object):
 
     def generate_children(self, other):
         # STUDENT How does this work?  Explain it in your writeup.
-        if not self.genome or not other.genome:
-            return (Individual_DE(self.genome),)
-
         pa = random.randint(0, len(self.genome) - 1)
         pb = random.randint(0, len(other.genome) - 1)
         a_part = self.genome[:pa] if len(self.genome) > 0 else []
@@ -472,12 +313,6 @@ class Individual_DE(object):
                         base[clip(0, height - h - 1, height - 1)][clip(1, x + x2, width - 2)] = madeof
                 elif de_type == "2_enemy":
                     base[height - 2][x] = "E"
-            # Ensure a playable path with gaps no longer than 4 blocks and no gaps of 1 block
-            for x in range(1, width - 5):
-                if all(base[height - 1][x + i] == "-" for i in range(5)):
-                    base[height - 1][x + random.randint(0, 4)] = "X"
-                elif base[height - 1][x] == "-" and base[height - 1][x + 1] == "-":
-                    base[height - 1][x] = "X"
             self._level = base
         return self._level
 
@@ -504,24 +339,13 @@ class Individual_DE(object):
         return Individual_DE(g)
 
 
-Individual = Individual_DE
+Individual = Individual_Grid
 
 
 def generate_successors(population):
     results = []
     # STUDENT Design and implement this
     # Hint: Call generate_children() on some individuals and fill up results.
-    # Elitist selection: Keep the top 10% of the population
-    population.sort(key=lambda ind: ind.fitness(), reverse=True)
-    elite_count = int(0.1 * len(population))
-    results.extend(population[:elite_count])
-
-    # Tournament selection: Select the rest of the population
-    tournament_size = 5
-    while len(results) < len(population):
-        tournament = random.sample(population, tournament_size)
-        winner = max(tournament, key=lambda ind: ind.fitness())
-        results.append(winner.generate_children(random.choice(population))[0])
 
     return results
 
@@ -565,7 +389,6 @@ def ga():
                             f.write("".join(row) + "\n")
                 generation += 1
                 # STUDENT Determine stopping condition
-                stop_condition = generation >= 200  # stopping condition
                 stop_condition = False
                 if stop_condition:
                     break
@@ -592,8 +415,6 @@ if __name__ == "__main__":
     print("Best fitness: " + str(best.fitness()))
     now = time.strftime("%m_%d_%H_%M_%S")
     # STUDENT You can change this if you want to blast out the whole generation, or ten random samples, or...
-    if not os.path.exists("levels"):
-        os.makedirs("levels")
     for k in range(0, 10):
         with open("levels/" + now + "_" + str(k) + ".txt", 'w') as f:
             for row in final_gen[k].to_level():
